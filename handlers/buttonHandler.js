@@ -262,25 +262,28 @@ async function handleButtons(interaction) {
           const header = new EmbedBuilder()
             .setTitle(`${event.name} - Final Results`)
             .setDescription(
-              `The event has concluded. All ${ranked.length} entries are listed below in order of placement.`,
+              `The event has concluded. Entries are revealed from lowest to highest — 1st place is at the bottom.`,
             )
             .setColor(0xffd700)
             .setTimestamp();
           await resultsChannel.send({ embeds: [header] });
 
-          // One embed + thread button per entry, with creator ping
-          for (let i = 0; i < ranked.length; i++) {
-            const { sub, avg } = ranked[i];
+          // Post lowest → highest so 1st place lands at the bottom
+          const rankedWithRank = ranked.map((item, i) => ({ ...item, rank: i + 1 }));
+          const postOrder = [...rankedWithRank].reverse();
+
+          const labels = ["1st Place", "2nd Place", "3rd Place"];
+          const colors = [0xffd700, 0xc0c0c0, 0xcd7f32];
+
+          for (const { sub, avg, rank } of postOrder) {
             const scores = stmts.getScoresForSubmission.all(sub.id);
             const feedbackLines = scores
               .filter((s) => s.feedback)
               .map((s) => `- ${s.feedback}`);
 
-            const labels = ["1st Place", "2nd Place", "3rd Place"];
-            const colors = [0xffd700, 0xc0c0c0, 0xcd7f32];
             const embed = new EmbedBuilder()
-              .setTitle(`${labels[i] ?? `#${i + 1}`} - ${sub.title}`)
-              .setColor(colors[i] ?? 0x5865f2)
+              .setTitle(`${labels[rank - 1] ?? `#${rank}`} - ${sub.title}`)
+              .setColor(colors[rank - 1] ?? 0x5865f2)
               .addFields(
                 { name: "Creator", value: `<@${sub.user_id}>`, inline: true },
                 {
