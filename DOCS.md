@@ -52,7 +52,7 @@ Sets up the SQLite database (`events.db`) and exports every prepared SQL stateme
 - `events` — one row per competition (name, status, channel IDs, etc.)
 - `submissions` — one row per entry (linked to an event, has a thread ID and a codename)
 - `scores` — one row per judge-per-entry score (1–10 + optional feedback)
-- `votes` — for public voting (not fully wired up yet)
+- `votes` — for public voting (schema and prepared statements exist, but no UI or handlers use it yet)
 
 **Event statuses** (in order):
 1. `submissions_open` — people can submit
@@ -86,10 +86,10 @@ Handles slash commands. It:
 ### `handlers/modalHandler.js`
 Handles the two popup forms in the bot.
 
-**Submission form** (`modal_submit_*`): When someone clicks "Submit an Entry" and fills in the form, this:
+**Submission form** (`modal_submit_*`): When someone clicks "Submit an Entry" and fills in the title + description, this:
 1. Checks submissions are still open and the user hasn't already submitted
-2. Generates a random codename (e.g. `Crimson-Falcon-47`) to keep entries anonymous
-3. Creates a private thread in the submission channel — only the submitter and admins can see it at this point. Judges are deliberately NOT added here; they only get access when judging starts.
+2. Creates a private thread in the submission channel — only the submitter and admins can see it at this point. Judges are deliberately NOT added here; they only get access when judging starts.
+3. Stores the entry with the title as its codename, defaulting category to `General` and link to `null`
 4. Posts a confirmation embed inside the thread with upload instructions
 5. Refreshes the judging panel so the new entry appears
 
@@ -147,7 +147,7 @@ Admin-only. Takes an event ID and shows a confirmation prompt before deleting. O
 ### `utils/helpers.js`
 Shared utility functions used across the bot.
 
-**`generateCodename()`** — Picks a random adjective + noun + two-digit number (e.g. `Obsidian-Vortex-83`) to anonymise entries during judging.
+**`generateCodename()`** — Picks a random adjective + noun + two-digit number (e.g. `Obsidian-Vortex-83`). Defined but not currently called — the submission flow stores the entry title as the codename instead.
 
 **`statusBadge(status)`** — Converts internal status strings like `submissions_open` into readable labels like `Submissions Open`.
 
@@ -155,15 +155,15 @@ Shared utility functions used across the bot.
 
 **`refreshJudgeHub(guild, event, stmts)`** — Fetches the pinned judging panel message and edits it in place so it always shows up-to-date entry counts and scores. Called after every submission and every score.
 
-**`setThreadVisibility(guild, submissions, judgeRoleId, adminRoleId, visible)`** — Called when switching into or out of judging phase.
-- `visible = true` (entering judging): fetches all guild members with the judge role and adds them to each private thread as members, then locks the threads. Locking prevents anyone without the Manage Threads permission from typing — so judges can read but not write.
-- `visible = false` (leaving judging, going back to submissions open): removes judge view access, restores submitter write access, unlocks threads.
+**`setThreadVisibility(guild, submissions, judgeRoleId, adminRoleId, visible)`** — Manages judge access to submission threads.
+- `visible = true` (entering judging): fetches all guild members, adds every judge and admin role member to each private thread, then locks the threads. Locking prevents anyone without Manage Threads from typing — judges can read but not write.
+- `visible = false` (reversing judging): removes judge view access, restores submitter write access, unlocks threads. This path is implemented but not called by any current phase transition — `phase_revealed` edits thread permissions inline instead.
 
 **`submissionEmbed()`** — The confirmation embed that goes inside a submitter's private thread when they submit.
 
 **`entryDetailEmbed()`** — The embed shown to a judge when they click a "View Entry" button in the judging panel. Shows title, description, link, current average, and the judge's own score if they've already scored it.
 
-**`archiveEntryEmbed()`** — The embed posted to the results channel for each entry during archival. Shows placement, creator, score, and any judge feedback.
+**`archiveEntryEmbed()`** — Builds a result embed for one entry: placement, creator, score, and any judge feedback. Defined here but the archive phase in `buttonHandler.js` builds these embeds inline — this function is not currently called.
 
 ---
 

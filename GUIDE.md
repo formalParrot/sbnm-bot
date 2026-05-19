@@ -61,7 +61,5 @@ Hit **My Progress** at the bottom of the judging panel to see a personal checkli
 
 Once judging begins your thread gets locked and judges will be able to read it. You won't be able to edit or add anything after that point, so make sure everything's uploaded before then.
 
-Your entry is given a random codename (like `Cobalt-Phoenix-34`) so judges don't know who made what while scoring.
-
 ### After judging
 Once the event is archived, your results and any judge feedback will be posted in **#results**. You'll get pinged.
