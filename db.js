@@ -63,8 +63,8 @@ db.exec(`
 const stmts = {
   // Events
   insertEvent: db.prepare(`
-    INSERT INTO events (guild_id, name, description, status, category_id, submission_channel_id, results_channel_id, judge_channel_id)
-    VALUES (@guild_id, @name, @description, 'submissions_open', @category_id, @submission_channel_id, @results_channel_id, @judge_channel_id)
+    INSERT INTO events (guild_id, name, description, status, category_id, submission_channel_id, results_channel_id, judge_channel_id, deadline_timestamp)
+    VALUES (@guild_id, @name, @description, 'submissions_open', @category_id, @submission_channel_id, @results_channel_id, @judge_channel_id, @deadline_timestamp)
   `),
   getEvent:           db.prepare('SELECT * FROM events WHERE id = ?'),
   getActiveEvent:     db.prepare("SELECT * FROM events WHERE guild_id = ? AND status NOT IN ('archived') ORDER BY id DESC LIMIT 1"),

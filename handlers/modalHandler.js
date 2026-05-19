@@ -2,11 +2,193 @@ const {
   ChannelType,
   PermissionFlagsBits,
   MessageFlags,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } = require("discord.js");
 const { stmts } = require("../db");
-const { submissionEmbed, refreshJudgeHub } = require("../utils/helpers");
+const {
+  submissionEmbed,
+  refreshJudgeHub,
+  buildJudgeHub,
+} = require("../utils/helpers");
+
+function parseDeadline(raw) {
+  if (!raw) return null;
+  const match = raw.match(/<t:(\d+)(?::[A-Za-z])?>/);
+  if (match) return parseInt(match[1], 10);
+  const n = parseInt(raw, 10);
+  return isNaN(n) ? null : n;
+}
 
 async function handleModals(interaction) {
+  // -------------------------------------------------------------------------
+  // Event setup modal
+  // -------------------------------------------------------------------------
+  if (interaction.customId === "modal_event_setup") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const name = interaction.fields.getTextInputValue("name").trim();
+    const description =
+      interaction.fields.getTextInputValue("description").trim() || "";
+    const deadlineRaw = interaction.fields.getTextInputValue("deadline").trim();
+    const deadlineTs = parseDeadline(deadlineRaw);
+
+    const guild = interaction.guild;
+    const judgeRoleId = process.env.JUDGE_ROLE_ID;
+    const adminRoleId = process.env.ADMIN_ROLE_ID;
+
+    const category = await guild.channels.create({
+      name,
+      type: ChannelType.GuildCategory,
+    });
+
+    const subChannel = await guild.channels.create({
+      name: "submit",
+      type: ChannelType.GuildText,
+      parent: category.id,
+      permissionOverwrites: [
+        {
+          id: guild.id,
+          allow: [PermissionFlagsBits.ViewChannel],
+          deny: [PermissionFlagsBits.SendMessages],
+        },
+        {
+          id: interaction.client.user.id,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+          ],
+        },
+        ...(adminRoleId
+          ? [
+              {
+                id: adminRoleId,
+                allow: [
+                  PermissionFlagsBits.ViewChannel,
+                  PermissionFlagsBits.SendMessages,
+                ],
+              },
+            ]
+          : []),
+      ],
+    });
+
+    const judgeOverwrites = [
+      {
+        id: guild.id,
+        deny: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+        ],
+      },
+      {
+        id: interaction.client.user.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+        ],
+      },
+    ];
+    if (judgeRoleId)
+      judgeOverwrites.push({
+        id: judgeRoleId,
+        allow: [PermissionFlagsBits.ViewChannel],
+        deny: [PermissionFlagsBits.SendMessages],
+      });
+    if (adminRoleId)
+      judgeOverwrites.push({
+        id: adminRoleId,
+        allow: [PermissionFlagsBits.ViewChannel],
+        deny: [PermissionFlagsBits.SendMessages],
+      });
+    const judgeChannel = await guild.channels.create({
+      name: "judging",
+      type: ChannelType.GuildText,
+      parent: category.id,
+      permissionOverwrites: judgeOverwrites,
+    });
+
+    const resultsChannel = await guild.channels.create({
+      name: "results",
+      type: ChannelType.GuildText,
+      parent: category.id,
+      permissionOverwrites: [
+        {
+          id: guild.id,
+          allow: [PermissionFlagsBits.ViewChannel],
+          deny: [PermissionFlagsBits.SendMessages],
+        },
+        {
+          id: interaction.client.user.id,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+          ],
+        },
+      ],
+    });
+
+    const { lastInsertRowid: eventId } = stmts.insertEvent.run({
+      guild_id: guild.id,
+      name,
+      description,
+      deadline_timestamp: deadlineTs,
+      category_id: category.id,
+      submission_channel_id: subChannel.id,
+      results_channel_id: resultsChannel.id,
+      judge_channel_id: judgeChannel.id,
+    });
+
+    const subEmbed = new EmbedBuilder()
+      .setTitle(name)
+      .setColor(0x5865f2)
+      .addFields(
+        { name: "Results", value: `<#${resultsChannel.id}>`, inline: true },
+        {
+          name: "How to Submit",
+          value:
+            "1. Click Submit below\n2. Fill submission details in\n3. Upload files + Additional info in **private thread**",
+        },
+      )
+      .setFooter({ text: `Event ID: ${eventId}` })
+      .setTimestamp();
+
+    const subRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`event_submit_${eventId}`)
+        .setLabel("Submit")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`event_status_${eventId}`)
+        .setLabel("Event Status")
+        .setStyle(ButtonStyle.Secondary),
+    );
+    await subChannel.send({ embeds: [subEmbed], components: [subRow] });
+    await subChannel.send(
+      `## ${name}\n\n${description}\n\n:date: **Competition Ends**: ${deadlineTs ? `<t:${deadlineTs}:f>` : "TBD"}\n\n:envelope: **Submit your builds** via the button above ^^\n\n:green_book: **Rules**:\n  :x: No stolen builds\n  :x: No inappropriate builds\n\n:thinking: **Any questions?**\n- channel goes here -\n\nGood Luck! :tada:`,
+    );
+
+    const { embed: hubEmbed, components: hubComponents } = buildJudgeHub(
+      name,
+      eventId,
+      [],
+      "submissions_open",
+    );
+    const hubMsg = await judgeChannel.send({
+      embeds: [hubEmbed],
+      components: hubComponents,
+    });
+    stmts.setJudgeHubMessage.run(hubMsg.id, eventId);
+
+    const deadlineNote = deadlineTs ? `\nDeadline: <t:${deadlineTs}:F>` : "";
+
+    return interaction.editReply(
+      `Event **${name}** created.${deadlineNote}\nSubmission channel: <#${subChannel.id}>`,
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Submission modal
   // -------------------------------------------------------------------------

@@ -32,11 +32,11 @@ module.exports = async function handleCommands(interaction) {
  await command.execute(interaction);
  } catch (err) {
  console.error(`[ERROR] /${command.data.name}:`, err);
- const reply = { content: ' Something went wrong running that command.', flags: MessageFlags.Ephemeral };
+ const reply = { content: 'Something went wrong running that command.', flags: MessageFlags.Ephemeral };
  if (interaction.replied || interaction.deferred) {
- await interaction.followUp(reply);
+ await interaction.followUp(reply).catch(() => {});
  } else {
- await interaction.reply(reply);
+ await interaction.reply(reply).catch(() => {});
  }
  }
 };
