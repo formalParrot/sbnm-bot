@@ -47,10 +47,10 @@ module.exports = {
 
     const deadlineInput = new TextInputBuilder()
       .setCustomId("deadline")
-      .setLabel("Deadline (Discord timestamp or Unix seconds)")
+      .setLabel("Deadline (Unix Timestamp)")
       .setStyle(TextInputStyle.Short)
       .setRequired(false)
-      .setPlaceholder("<t:1234567890:F> or 1234567890");
+      .setPlaceholder("1234567890");
 
     modal.addComponents(
       new ActionRowBuilder().addComponents(nameInput),
