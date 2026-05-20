@@ -6,7 +6,7 @@ module.exports = {
   execute(client) {
     console.log(` Logged in as ${client.user.tag}`);
     client.user.setActivity("competitive events", {
-      type: ActivityType.Custom,
+      type: ActivityType.Watching,
     });
   },
 };
