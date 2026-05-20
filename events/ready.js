@@ -1,10 +1,12 @@
-const { Events, ActivityType } = require('discord.js');
+const { Events, ActivityType } = require("discord.js");
 
 module.exports = {
- name: Events.ClientReady,
- once: true,
- execute(client) {
- console.log(` Logged in as ${client.user.tag}`);
- client.user.setActivity('competitive events', { type: ActivityType.Watching });
- },
+  name: Events.ClientReady,
+  once: true,
+  execute(client) {
+    console.log(` Logged in as ${client.user.tag}`);
+    client.user.setActivity("competitive events", {
+      type: ActivityType.Custom,
+    });
+  },
 };
